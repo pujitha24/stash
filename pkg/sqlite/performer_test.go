@@ -2842,3 +2842,40 @@ func TestPerformerMerge(t *testing.T) {
 // TODO Destroy
 // TODO Find
 // TODO Query
+
+func TestPerformerQueryDisambiguationExcludesIncludesNull(t *testing.T) {
+	tests := []struct {
+		name     string
+		modifier models.CriterionModifier
+		value    string
+	}{
+		{"excludes", models.CriterionModifierExcludes, getPerformerStringValue(performerIdxWithGallery, "disambiguation")},
+		{"not equals", models.CriterionModifierNotEquals, getPerformerStringValue(performerIdxWithGallery, "disambiguation")},
+	}
+
+	for _, tt := range tests {
+		runWithRollbackTxn(t, tt.name, func(t *testing.T, ctx context.Context) {
+			assert := assert.New(t)
+
+			// a performer with no disambiguation is stored as NULL
+			noDisambig := models.Performer{Name: "performer without disambiguation"}
+			if err := db.Performer.Create(ctx, &models.CreatePerformerInput{Performer: &noDisambig}); err != nil {
+				t.Fatalf("creating performer: %v", err)
+			}
+
+			performers, _, err := db.Performer.Query(ctx, &models.PerformerFilterType{
+				Disambiguation: &models.StringCriterionInput{
+					Modifier: tt.modifier,
+					Value:    tt.value,
+				},
+			}, nil)
+			if err != nil {
+				t.Fatalf("Query() error = %v", err)
+			}
+
+			ids := performersToIDs(performers)
+			assert.Contains(ids, noDisambig.ID)
+			assert.NotContains(ids, performerIDs[performerIdxWithGallery])
+		})
+	}
+}
