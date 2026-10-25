@@ -457,9 +457,19 @@ export const LightboxComponent: React.FC<IProps> = ({
     [hide]
   );
 
+  // a drag that starts on the image and ends on the backdrop dispatches a
+  // click on the backdrop, so only close if the press started there too
+  const mouseDownOnBackdrop = useRef(false);
+
+  const isBackdrop = (target: EventTarget) =>
+    !!(target as Element).className?.includes?.(CLASSNAME_IMAGE);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    mouseDownOnBackdrop.current = isBackdrop(e.target);
+  };
+
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
-    const { className } = e.target as Element;
-    if (className?.includes?.(CLASSNAME_IMAGE)) close();
+    if (mouseDownOnBackdrop.current && isBackdrop(e.target)) close();
   };
 
   const handleLeft = useCallback(
@@ -1148,6 +1158,7 @@ export const LightboxComponent: React.FC<IProps> = ({
       className={CLASSNAME}
       role="presentation"
       ref={containerRef}
+      onMouseDown={handleMouseDown}
       onClick={handleClose}
     >
       {renderBody()}
